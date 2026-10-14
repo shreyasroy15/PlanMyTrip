@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    function doesNotContainPasswords() {
+      return !(request.resource.data.keys().hasAny(['password', 'passwordHash']));
+    }
+
+    // 1. Users Collection
+    // - User can read/write own profile
+    // - Admin can manage users
+    // - Strict password credential prevention
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId && doesNotContainPasswords();
+      allow update: if (isOwner(userId) || isAdmin()) && doesNotContainPasswords();
+      allow delete: if isAdmin();
+    }
+
+    // 2. Trips Collection
+    // - User can read/write own trips
+    // - Admin can manage trips
+    match /trips/{tripId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // 3. Destinations Collection
+    // - Users can read
+    // - Admin can create/update/delete
+    match /destinations/{destinationId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 4. Admin-Only Collections
+    // - Only authorized admin users
+    match /admin/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /system/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // 5. User Specific Auxiliary Collections
+    match /saved_places/{placeId} {
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /ai_requests/{requestId} {
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+    }
+  }
+}

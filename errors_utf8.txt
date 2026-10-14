@@ -1,0 +1,5 @@
+﻿Analyzing PlanMyTrip...                                         
+
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement - lib\features\auth\login_screen.dart:108:46 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement - lib\features\auth\login_screen.dart:110:65 - deprecated_member_use
+
