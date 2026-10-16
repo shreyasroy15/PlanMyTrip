@@ -32,12 +32,14 @@ class AuthService {
   Future<AuthResponse> login({
     required String email,
     required String password,
+    bool rememberMe = false,
   }) async {
     final response = await _apiClient.post(
       '/auth/login',
       data: {
         'email': email,
         'password': password,
+        'rememberMe': rememberMe,
       },
     );
     return AuthResponse.fromJson(response.data['data'] as Map<String, dynamic>);
@@ -49,6 +51,31 @@ class AuthService {
     return UserModel.fromMap(userData);
   }
 
+  Future<UserModel> updateProfile(String name) async {
+    final response = await _apiClient.patch(
+      '/auth/profile',
+      data: {'name': name},
+    );
+    final userData = response.data['data']['user'] as Map<String, dynamic>;
+    return UserModel.fromMap(userData);
+  }
+
+  Future<AuthResponse> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final response = await _apiClient.post(
+      '/auth/change-password',
+      data: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+        'confirmPassword': confirmPassword,
+      },
+    );
+    return AuthResponse.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<AuthResponse> refreshToken(String refreshToken) async {
     final response = await _apiClient.post(
       '/auth/refresh',
@@ -58,11 +85,25 @@ class AuthService {
   }
 
   Future<void> logout(String? refreshToken) async {
-    await _apiClient.post(
-      '/auth/logout',
-      data: {'refreshToken': refreshToken ?? ''},
-    );
-    await _apiClient.tokenStorage.clearTokens();
+    try {
+      await _apiClient.post(
+        '/auth/logout',
+        data: {'refreshToken': refreshToken ?? ''},
+      );
+    } catch (_) {
+      // Ignore network errors on logout to ensure local wipe always proceeds
+    } finally {
+      await _apiClient.tokenStorage.clearTokens();
+    }
+  }
+
+  Future<void> logoutAll() async {
+    try {
+      await _apiClient.post('/auth/logout-all');
+    } catch (_) {
+    } finally {
+      await _apiClient.tokenStorage.clearTokens();
+    }
   }
 
   Future<void> sendForgotPassword(String email) async {
@@ -87,6 +128,33 @@ class AuthService {
     );
   }
 
+  Future<UserModel> verifyEmail(String token) async {
+    final response = await _apiClient.post(
+      '/auth/verify-email',
+      data: {'token': token},
+    );
+    final userData = response.data['data']['user'] as Map<String, dynamic>;
+    return UserModel.fromMap(userData);
+  }
+
+  // Email OTP
+  Future<Map<String, dynamic>> sendEmailOtp(String email, {String purpose = 'login'}) async {
+    final response = await _apiClient.post(
+      '/auth/send-email-otp',
+      data: {'email': email, 'purpose': purpose},
+    );
+    return response.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<AuthResponse> verifyEmailOtp(String email, String otp, {String purpose = 'login'}) async {
+    final response = await _apiClient.post(
+      '/auth/verify-email-otp',
+      data: {'email': email, 'otp': otp, 'purpose': purpose},
+    );
+    return AuthResponse.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  // Phone OTP
   Future<Map<String, dynamic>> sendOtp(String phone) async {
     final response = await _apiClient.post(
       '/auth/send-otp',
@@ -106,6 +174,7 @@ class AuthService {
     return AuthResponse.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  // Social Authentication
   Future<AuthResponse> googleLogin({
     required String idToken,
     String? email,
@@ -119,6 +188,22 @@ class AuthService {
         'email': email,
         'name': name,
         'photoUrl': photoUrl,
+      },
+    );
+    return AuthResponse.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<AuthResponse> appleLogin({
+    required String identityToken,
+    String? rawNonce,
+    String? name,
+  }) async {
+    final response = await _apiClient.post(
+      '/auth/apple',
+      data: {
+        'identityToken': identityToken,
+        'rawNonce': rawNonce,
+        'name': name,
       },
     );
     return AuthResponse.fromJson(response.data['data'] as Map<String, dynamic>);

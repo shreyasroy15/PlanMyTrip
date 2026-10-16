@@ -1,18 +1,23 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../errors/api_error_model.dart';
 import 'token_storage.dart';
 
 class ApiClient {
-  static final String defaultBaseUrl = kIsWeb
-      ? 'http://localhost:5000/api'
-      : (defaultTargetPlatform == TargetPlatform.android
-          ? 'http://10.0.2.2:5000/api'
-          : 'http://localhost:5000/api');
+  static final String defaultBaseUrl = const String.fromEnvironment('API_URL', defaultValue: '')
+          .isNotEmpty
+      ? const String.fromEnvironment('API_URL')
+      : (kIsWeb
+          ? 'http://localhost:5000/api'
+          : (defaultTargetPlatform == TargetPlatform.android
+              ? 'http://10.0.2.2:5000/api'
+              : 'http://localhost:5000/api'));
 
   final Dio _dio;
   final TokenStorage _tokenStorage;
   bool _isRefreshing = false;
+  Completer<bool>? _refreshCompleter;
 
   ApiClient({String? baseUrl, TokenStorage? tokenStorage, Dio? dio})
       : _tokenStorage = tokenStorage ?? TokenStorage(),
@@ -20,8 +25,8 @@ class ApiClient {
             Dio(
               BaseOptions(
                 baseUrl: baseUrl ?? defaultBaseUrl,
-                connectTimeout: const Duration(seconds: 10),
-                receiveTimeout: const Duration(seconds: 10),
+                connectTimeout: const Duration(seconds: 15),
+                receiveTimeout: const Duration(seconds: 15),
                 headers: {
                   'Content-Type': 'application/json',
                   'Accept': 'application/json',
@@ -45,14 +50,26 @@ class ApiClient {
           return handler.next(options);
         },
         onError: (DioException error, handler) async {
-          if (error.response?.statusCode == 401 && !_isRefreshing) {
+          if (error.response?.statusCode == 401) {
             final requestPath = error.requestOptions.path;
-            if (!requestPath.contains('/auth/login') &&
-                !requestPath.contains('/auth/register') &&
-                !requestPath.contains('/auth/refresh')) {
-              _isRefreshing = true;
-              final refreshed = await _attemptTokenRefresh();
-              _isRefreshing = false;
+            final isAuthEndpoint = requestPath.contains('/auth/login') ||
+                requestPath.contains('/auth/register') ||
+                requestPath.contains('/auth/refresh');
+
+            if (!isAuthEndpoint) {
+              bool refreshed = false;
+
+              if (_isRefreshing && _refreshCompleter != null) {
+                // Wait for existing refresh in progress to avoid race conditions
+                refreshed = await _refreshCompleter!.future;
+              } else {
+                _isRefreshing = true;
+                _refreshCompleter = Completer<bool>();
+                refreshed = await _attemptTokenRefresh();
+                _refreshCompleter!.complete(refreshed);
+                _isRefreshing = false;
+                _refreshCompleter = null;
+              }
 
               if (refreshed) {
                 try {
@@ -78,7 +95,17 @@ class ApiClient {
       final refreshToken = await _tokenStorage.getRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) return false;
 
-      final response = await _dio.post(
+      // Use a clean dio instance without interceptors to avoid looping
+      final refreshDio = Dio(
+        BaseOptions(
+          baseUrl: _dio.options.baseUrl,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+
+      final response = await refreshDio.post(
         '/auth/refresh',
         data: {'refreshToken': refreshToken},
       );

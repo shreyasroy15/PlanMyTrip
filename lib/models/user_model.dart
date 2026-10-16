@@ -8,6 +8,9 @@ class UserModel {
   final bool isActive;
   final bool isEmailVerified;
   final bool isPhoneVerified;
+  final bool isGoogleUser;
+  final bool isAppleUser;
+  final bool hasPassword;
   final String createdAt;
   final String updatedAt;
   final String? lastLoginAt;
@@ -22,6 +25,9 @@ class UserModel {
     this.isActive = true,
     this.isEmailVerified = false,
     this.isPhoneVerified = false,
+    this.isGoogleUser = false,
+    this.isAppleUser = false,
+    this.hasPassword = true,
     required this.createdAt,
     required this.updatedAt,
     this.lastLoginAt,
@@ -39,6 +45,9 @@ class UserModel {
       isActive: map['isActive'] ?? true,
       isEmailVerified: map['isEmailVerified'] ?? false,
       isPhoneVerified: map['isPhoneVerified'] ?? false,
+      isGoogleUser: map['isGoogleUser'] ?? false,
+      isAppleUser: map['isAppleUser'] ?? false,
+      hasPassword: map['hasPassword'] ?? true,
       createdAt: map['createdAt'] ?? '',
       updatedAt: map['updatedAt'] ?? map['createdAt'] ?? '',
       lastLoginAt: map['lastLoginAt']?.toString(),
@@ -58,6 +67,9 @@ class UserModel {
       'isActive': isActive,
       'isEmailVerified': isEmailVerified,
       'isPhoneVerified': isPhoneVerified,
+      'isGoogleUser': isGoogleUser,
+      'isAppleUser': isAppleUser,
+      'hasPassword': hasPassword,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'lastLoginAt': lastLoginAt,
@@ -74,6 +86,9 @@ class UserModel {
     bool? isActive,
     bool? isEmailVerified,
     bool? isPhoneVerified,
+    bool? isGoogleUser,
+    bool? isAppleUser,
+    bool? hasPassword,
     String? createdAt,
     String? updatedAt,
     String? lastLoginAt,
@@ -88,6 +103,9 @@ class UserModel {
       isActive: isActive ?? this.isActive,
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,
+      isGoogleUser: isGoogleUser ?? this.isGoogleUser,
+      isAppleUser: isAppleUser ?? this.isAppleUser,
+      hasPassword: hasPassword ?? this.hasPassword,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,

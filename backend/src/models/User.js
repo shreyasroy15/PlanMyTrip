@@ -24,8 +24,8 @@ const userSchema = new mongoose.Schema(
     passwordHash: {
       type: String,
       required: function () {
-        // Password hash required unless signed up via Google
-        return !this.isGoogleUser;
+        // Password hash required unless signed up via Google or Apple
+        return !this.isGoogleUser && !this.isAppleUser;
       },
       select: false,
     },
@@ -36,6 +36,16 @@ const userSchema = new mongoose.Schema(
     googleId: {
       type: String,
       default: '',
+      index: true,
+    },
+    isAppleUser: {
+      type: Boolean,
+      default: false,
+    },
+    appleId: {
+      type: String,
+      default: '',
+      index: true,
     },
     photoUrl: {
       type: String,
@@ -56,9 +66,35 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    emailVerificationTokenHash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    emailVerificationExpiresAt: {
+      type: Date,
+      default: null,
+    },
     isPhoneVerified: {
       type: Boolean,
       default: false,
+    },
+    passwordResetTokenHash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    passwordResetExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockoutUntil: {
+      type: Date,
+      default: null,
     },
     lastLoginAt: {
       type: Date,
@@ -73,11 +109,18 @@ const userSchema = new mongoose.Schema(
         delete ret._id;
         delete ret.__v;
         delete ret.passwordHash;
+        delete ret.passwordResetTokenHash;
+        delete ret.emailVerificationTokenHash;
         return ret;
       },
     },
   }
 );
+
+// Helper to check if account is currently locked
+userSchema.methods.isLocked = function () {
+  return this.lockoutUntil && this.lockoutUntil > new Date();
+};
 
 // Method to format sanitized JSON object for API response
 userSchema.methods.toAuthJSON = function () {
@@ -91,6 +134,9 @@ userSchema.methods.toAuthJSON = function () {
     isActive: this.isActive,
     isEmailVerified: this.isEmailVerified,
     isPhoneVerified: this.isPhoneVerified,
+    isGoogleUser: this.isGoogleUser,
+    isAppleUser: this.isAppleUser,
+    hasPassword: Boolean(this.passwordHash || !this.isGoogleUser && !this.isAppleUser),
     createdAt: this.createdAt,
     lastLoginAt: this.lastLoginAt,
   };

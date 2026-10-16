@@ -2,9 +2,24 @@ const mongoose = require('mongoose');
 
 const otpSchema = new mongoose.Schema(
   {
-    phone: {
+    target: {
       type: String,
       required: true,
+      trim: true,
+      index: true,
+    },
+    type: {
+      type: String,
+      enum: ['email', 'phone'],
+      required: true,
+      default: 'phone',
+      index: true,
+    },
+    purpose: {
+      type: String,
+      enum: ['login', 'verification', 'password_reset'],
+      required: true,
+      default: 'login',
       index: true,
     },
     codeHash: {
@@ -14,7 +29,7 @@ const otpSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: { expires: '10m' }, // Automatically TTL delete
+      index: { expires: '10m' }, // TTL index
     },
     attempts: {
       type: Number,
@@ -29,6 +44,9 @@ const otpSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Compound index for querying active unverified OTPs efficiently
+otpSchema.index({ target: 1, type: 1, purpose: 1, isVerified: 1 });
 
 const Otp = mongoose.model('Otp', otpSchema);
 
